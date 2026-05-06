@@ -103,7 +103,7 @@ Si le budget restant passe sous 10% :
 
 ## 7. Capture d'écran du dashboard Grafana
 
-<img width="1896" height="752" alt="image" src="https://github.com/user-attachments/assets/eec583ca-1e15-4b73-abd1-94e87fd55a39" />
+<img width="1891" height="739" alt="image" src="https://github.com/user-attachments/assets/6c4921c4-372a-48ff-b393-33eff05452d1" />
 
 ---
 
