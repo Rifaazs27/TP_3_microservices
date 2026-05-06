@@ -11,6 +11,10 @@ app.get('/metrics', async (req, res) => {
     res.set('Content-Type', register.contentType);
     res.end(await register.metrics());
 });
-
 app.get('/', (req, res) => res.send("L'API RH est fonctionnelle"));
+
+app.get('/slow', async (req, res) => {
+  await new Promise(resolve => setTimeout(resolve, 600)); 
+  res.json({ message: 'Réponse très lente...' });
+});
 app.listen(PORT, () => console.log(`Service RH lancé sur le port ${PORT}`));
