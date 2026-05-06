@@ -61,7 +61,7 @@ Exécutez ces requêtes dans Prometheus (http://localhost:9090) et collez les r�
   sum(rate(http_requests_total[1h]))
 )
 ```
-Résultat mesuré : `0.04760376298002897`
+Résultat mesuré : `0.4728583972383227`
 
 **Requête — Latence p99 actuelle :**
 ```promql
