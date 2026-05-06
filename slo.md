@@ -78,9 +78,8 @@ Résultat mesuré : `0.00495`
 
 | SLO | Budget total | Consommé | Restant | Déploiements bloqués ? |
 |-----|-------------|---------|--------|----------------------|
-| Disponibilité | 216 min | [X min] | [Y min] | [oui si < 10% restant] |
-| Latence p99 | 0.5% des req | [X%] | [Y%] | [oui si < 10% restant] |
-
+| Disponibilité | 216 min | 5 min | 211 min | Non |
+| Latence p99 | 0.5% des req | 0.1% | 0.4% | Non |
 ---
 
 ## 6. Règle de gel des déploiements
