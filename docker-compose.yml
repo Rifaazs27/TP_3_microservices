@@ -1,0 +1,56 @@
+# Microservice 1: kanboard
+services:
+  kanboard:
+    image: kanboard/kanboard:latest
+    container_name: kanboard_app
+    ports:
+      - "8080:80"
+    environment:
+      - DATABASE_URL=mysql://kanboarduser:kanboardpass@db-kanboard/kanboard
+    depends_on:
+      db-kanboard:
+        condition: service_healthy
+    networks:
+      - tp-network
+
+# Base de données kanboard
+  db-kanboard:
+    image: mariadb:10.11
+    container_name: kanboard_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: kanboard
+      MYSQL_USER: kanboarduser
+      MYSQL_PASSWORD: kanboardpass
+    networks:
+      - tp-network
+    healthcheck:
+      test: ["CMD","healthcheck.sh","--connect","--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+# Microservice 2: API RH
+  api-rh:
+    build: ./api-rh
+    container_name: api_rh
+    ports:
+      - "3000:3000"
+    networks:
+      - tp-network
+    healthcheck:
+      test: ["CMD","node","-e","require('http').get('http://localhost:3000/health',(r)=>{if(r.statusCode!==200)process.exit(1)})"]
+      interval: 10s
+
+# Microservice 3: Python Processor
+  data-processor:
+    build: ./service-python
+    container_name: python_processor
+    ports:
+      - "5000:5000"
+    networks:
+      - tp-network
+
+networks:
+  tp-network:
+    driver: bridge
