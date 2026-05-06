@@ -1,35 +1,28 @@
 global:
-  scrape_interval: 15s       # Fréquence de collecte des métriques
-  evaluation_interval: 15s   # Fréquence d'évaluation des règles d'alerte[cite: 5]
+  scrape_interval: 15s
+  evaluation_interval: 15s
 
-# Fichiers de règles d'alerte
 rule_files:
-  - "alert_rules.yml"[cite: 5]
+  - "alert_rules.yml"
 
-# Configuration Alertmanager
 alerting:
   alertmanagers:
     - static_configs:
         - targets:
-            - alertmanager:9093[cite: 5]
+            - alertmanager:9093
 
-# ── Cibles à scraper ─────────────────────────────────────────
 scrape_configs:
-
-  # Prometheus lui-même
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['localhost:9090'][cite: 5]
+      - targets: ['localhost:9090']
 
-  # Ton API RH (Node.js)
   - job_name: 'api-rh'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
     static_configs:
       - targets: ['api_rh:3000']
-    metrics_path: '/metrics'[cite: 5]
-    scrape_interval: 10s[cite: 5]
 
-  # Ton Data Processor (Python)
   - job_name: 'python-processor'
+    metrics_path: '/metrics'
     static_configs:
       - targets: ['python_processor:5000']
-    metrics_path: '/metrics'[cite: 5]
