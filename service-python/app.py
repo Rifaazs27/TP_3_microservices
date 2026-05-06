@@ -2,8 +2,10 @@ from flask import Flask, jsonify, request
 from prometheus_client import make_wsgi_app, Counter, Histogram, Gauge
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 import time
+from tracing import setup_tracing
 
 app = Flask(__name__)
+tracer = setup_tracing(app, 'data-processor')
 
 REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP Requests', ['method', 'path', 'status', 'job'])
 REQUEST_LATENCY = Histogram('http_duration_seconds', 'HTTP Request Latency', ['method', 'path', 'status', 'job'])
@@ -17,7 +19,6 @@ def before_request():
 def after_request(response):
     if request.path != '/metrics':
         latency = time.time() - getattr(request, 'start_time', time.time())
-        # On ajoute +1 au compteur à chaque visite !
         REQUEST_COUNT.labels(request.method, request.path, response.status_code, 'python-processor').inc()
         REQUEST_LATENCY.labels(request.method, request.path, response.status_code, 'python-processor').observe(latency)
     return response
