@@ -70,7 +70,7 @@ histogram_quantile(
   sum(rate(http_duration_seconds_bucket[5m])) by (le, job)
 )
 ```
-Résultat mesuré : `0.0049499999999999995`
+Résultat mesuré : `0.00495`
 
 ---
 
