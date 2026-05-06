@@ -1,0 +1,49 @@
+# prometheus.yml — Configuration Prometheus pour le TP Jour 3
+# À placer à la racine du projet, à côté de docker-compose.yml
+
+global:
+  scrape_interval: 15s       # Fréquence de collecte des métriques
+  evaluation_interval: 15s   # Fréquence d'évaluation des règles d'alerte
+
+# Fichiers de règles d'alerte
+rule_files:
+  - "alert_rules.yml"
+
+# Configuration Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# ── Cibles à scraper ─────────────────────────────────────────
+scrape_configs:
+
+  # Prometheus lui-même
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # API Gateway
+  - job_name: 'gateway'
+    static_configs:
+      - targets: ['gateway:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Service Users
+  - job_name: 'users'
+    static_configs:
+      - targets: ['users:3001']
+    metrics_path: '/metrics'
+
+  # Service Products
+  - job_name: 'products'
+    static_configs:
+      - targets: ['products:3002']
+    metrics_path: '/metrics'
+
+  # TODO : ajoutez vos autres services ici
+  # - job_name: 'mon-service'
+  #   static_configs:
+  #     - targets: ['mon-service:PORT']
