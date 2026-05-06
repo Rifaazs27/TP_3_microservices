@@ -1,65 +1,30 @@
-# alert_rules.yml — Règles d'alerte Prometheus
-# À placer à la racine du projet
-
 groups:
-  - name: services.rules
+  - name: slo.burnrate
     rules:
-
-      # ── Alerte 1 : Taux d'erreur élevé ─────────────────────
-      # Se déclenche si plus de 5% des requêtes retournent une erreur 5xx
-      # pendant 2 minutes consécutives
-      - alert: HighErrorRate
+      # Burn Rate CRITIQUE (épuisement en < 2h)
+      - alert: SLOBurnRateCritical
         expr: |
-          (
-            sum(rate(http_requests_total{status=~"4..|5.."}[5m])) by (job)
-            /
-            sum(rate(http_requests_total[5m])) by (job)
-          ) > 0.05
+          (sum(rate(http_requests_total{status=~"5.."}[1h])) / sum(rate(http_requests_total[1h]))) / 0.005 > 14.4
+          and
+          (sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))) / 0.005 > 14.4
         for: 2m
         labels:
           severity: critical
+          slo: availability
         annotations:
-          summary: "Taux d'erreur > 5% sur {{ $labels.job }}"
-          description: >
-            Le service {{ $labels.job }} a un taux d'erreur de {{ $value | humanizePercentage }}.
-            Vérifiez les logs avec : docker-compose logs {{ $labels.job }}
+          summary: "Error budget épuisé en moins de 2 heures"
+          description: "Le burn rate est supérieur à 14.4 sur les fenêtres de 5m et 1h."[cite: 2]
 
-      # ── Alerte 2 : Latence p99 élevée ──────────────────────
-      # Se déclenche si le 99ème percentile de latence dépasse 500ms
-      # pendant 5 minutes consécutives
-      - alert: HighLatencyP99
+      # Burn Rate WARNING (épuisement en < 24h)
+      - alert: SLOBurnRateWarning
         expr: |
-          histogram_quantile(
-            0.99,
-            sum(rate(http_duration_seconds_bucket[5m])) by (le, job)
-          ) > 0.5
-        for: 5m
+          (sum(rate(http_requests_total{status=~"5.."}[6h])) / sum(rate(http_requests_total[6h]))) / 0.005 > 6
+          and
+          (sum(rate(http_requests_total{status=~"5.."}[30m])) / sum(rate(http_requests_total[30m]))) / 0.005 > 6
+        for: 15m
         labels:
           severity: warning
+          slo: availability
         annotations:
-          summary: "Latence p99 > 500ms sur {{ $labels.job }}"
-          description: >
-            Le service {{ $labels.job }} répond en {{ $value | humanizeDuration }} au p99.
-
-      # ── Alerte 3 : Service down ─────────────────────────────
-      # Se déclenche si Prometheus ne peut pas scraper un service
-      - alert: ServiceDown
-        expr: up == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Service {{ $labels.job }} injoignable"
-          description: "Prometheus ne peut pas collecter les métriques de {{ $labels.job }} depuis 1 minute."
-
-      # ── Alerte 4 : Mémoire élevée ───────────────────────────
-      # Se déclenche si un processus Node.js utilise plus de 200MB
-      - alert: HighMemoryUsage
-        expr: |
-          process_resident_memory_bytes > 200 * 1024 * 1024
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Utilisation mémoire élevée sur {{ $labels.job }}"
-          description: "{{ $labels.job }} utilise {{ $value | humanize }} de RAM."
+          summary: "Error budget en cours d'épuisement (< 24h)"
+          description: "Le burn rate est supérieur à 6 sur les fenêtres de 30m et 6h."[cite: 2]

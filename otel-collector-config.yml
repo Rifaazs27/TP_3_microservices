@@ -1,0 +1,28 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+exporters:
+  # Remplacer 'jaeger' par 'otlp'
+  otlp:
+    endpoint: jaeger:4317 # Jaeger écoute sur le port 4317 pour gRPC
+    tls:
+      insecure: true
+  logging:
+    loglevel: info
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp, logging] # Utiliser l'exportateur otlp ici
