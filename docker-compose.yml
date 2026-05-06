@@ -20,10 +20,10 @@ services:
     image: mariadb:10.11
     container_name: kanboard_db
     environment:
-      - MYSQL_ROOT_PASSWORD: rootpassword
-      - MYSQL_DATABASE: kanboard
-      - MYSQL_USER: kanboarduser
-      - MYSQL_PASSWORD: kanboardpass
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=kanboard
+      - MYSQL_USER=kanboarduser
+      - MYSQL_PASSWORD=kanboardpass
     networks:
       - tp-network
     healthcheck:
@@ -32,7 +32,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Microservice 2: API RH (Node.js) ────────────────────────
+  # ── Microservice 2: API RH ──────────────────────────────────
   api-rh:
     build: ./api-rh
     container_name: api_rh
@@ -53,7 +53,7 @@ services:
     networks:
       - tp-network
 
-  # ── Prometheus (Monitoring) ─────────────────────────────────
+  # ── Prometheus — Collecte des métriques ──────────────────────
   prometheus:
     image: prom/prometheus:v2.47.0
     container_name: prometheus
@@ -72,7 +72,7 @@ services:
       - tp-network
     restart: unless-stopped
 
-  # ── Grafana (Dashboard) ─────────────────────────────────────
+  # ── Grafana — Dashboards ─────────────────────────────────────
   grafana:
     image: grafana/grafana:10.2.0
     container_name: grafana
@@ -90,7 +90,7 @@ services:
       - prometheus
     restart: unless-stopped
 
-  # ── Alertmanager (Alertes) ──────────────────────────────────
+  # ── Alertmanager — Routage des alertes ──────────────────────
   alertmanager:
     image: prom/alertmanager:v0.26.0
     container_name: alertmanager
