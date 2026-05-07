@@ -1,125 +1,176 @@
-# SLO — Stack Microservices TP Jour 3
+# SLO Avancé — TP Jour 4
+**M2 DevOps — SUP DE VINCI**
 
-**Équipe :** MOUGAMMADOU ZACCARIA Zaafir
-**Date :** 06/05/2026
-**Stack :** Gateway + Users + Products
-
----
-
-## 1. SLI définis (Service Level Indicators)
-
-Les métriques que nous mesurons en temps réel :
-
-| SLI           | Description                                           | Requête PromQL                                                                                 |
-| ------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Disponibilité | % de requêtes HTTP sans erreur serveur (status < 500) | `1 - (sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])))` |
-| Latence       | % de requêtes répondant en moins de 200ms             | `histogram_quantile(0.99, sum(rate(http_duration_seconds_bucket[5m])) by (le, job))`           |
+| Équipe | [Prénom Nom] / [Prénom Nom] |
+|--------|----------------------------|
+| Date   | [Date]                     |
+| SLO cible | Disponibilité ≥ 99.5% sur fenêtre glissante 30 jours |
 
 ---
 
-## 2. SLO définis (Service Level Objectives)
+## Section 1 — SLI / SLO
 
-Nos objectifs internes sur 30 jours glissants :
+| SLI              | PromQL                                                                 | Valeur mesurée |
+|------------------|------------------------------------------------------------------------|----------------|
+| Disponibilité    | `1 - (sum(increase(http_requests_total{status=~"5.."}[1h])) / sum(increase(http_requests_total[1h])))` | 0.00812006233578446 |
+| Latence p99      | `histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))` | 0.00495 |
+| Taux de succès commandes | `sum(rate(orders_total{status="success"}[5m])) / sum(rate(orders_total[5m]))` | 0.9278350515463918 |
+| Commandes/min    | `rate(orders_total[5m]) * 60`                                          | 20.24 |
 
-| SLO           | Valeur cible | Justification                                                                                                                          |
-| ------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Disponibilité | ≥ 99,5%      | Ce seuil permet d'assurer un service fiable pour les utilisateurs, tout en nous laissant une petite marge pour faire des mises à jour. |
-| Latence p99   | ≤ 200ms      | Une réponse sous les 200ms garantit une navigation fluide pour le client                                                               |
 
----
 
-## 3. Calcul de l'Error Budget
 
-### Disponibilité
+### Objectifs SLO définis
 
-```
-Error Budget = 1 - SLO = 1 - 0.995 = 0.5%
-
-Sur 30 jours :
-30 jours × 24h × 60min = 43 200 minutes
-
-Budget = 0.5% × 43 200 = 216 minutes d'indisponibilité tolérable/mois
-       = 3 heures 36 minutes
-```
-
-### Latence
-
-```
-Budget latence = 0.5% des requêtes peuvent dépasser 200ms
-
-Sur 1 000 requêtes → 5 requêtes peuvent être lentes
-```
+| SLO | Cible | Fenêtre |
+|-----|-------|---------|
+| Disponibilité HTTP | 99.5% | 30 jours glissants |
+| Latence p99 | < 500ms | 5 minutes |
+| Taux de succès commandes | > 98% | 1 heure |
 
 ---
 
-## 4. État actuel du budget
+## Section 2 — Error Budget en temps réel
 
-### Requête — Taux de disponibilité actuel
+### Requête PromQL — Budget restant
 
-```
+```promql
 1 - (
-  sum(rate(http_requests_total{status=~"5.."}[1h]))
-  /
-  sum(rate(http_requests_total[1h]))
-)
+  sum(increase(http_requests_total{status=~"5.."}[30d]))
+  / sum(increase(http_requests_total[30d]))
+) / 0.005
 ```
 
-**Résultat mesuré :** `0.4728583972383227`
+**Résultats obtenus :**
+
+| Métrique | Valeur |
+|----------|--------|
+| Error budget total (30j) | 0.5% des requêtes autorisées en erreur |
+| Budget consommé | 143.2% |
+| Budget restant | -43.2% |
+| Déploiements bloqués | oui |
+
+### Interprétation
+
+> [Expliquez ici l'état de votre error budget : est-il en bonne santé ?
+Non, l'error budget n'est pas en bonne santé car il est complètement épuisé et en négatif (-43.2%).
+
+> Y a-t-il des événements qui l'ont fortement consommé ?]
+Oui, il a été fortement consommé par nos tests manuels qui ont généré volontairement des erreurs 500 pour déclencher les alertes.
 
 ---
 
-### Requête — Latence p99 actuelle
+## Section 3 — Analyse des traces Jaeger
+
+### Capture d'écran
+
+> ![image_Jaeger](<Capture d'écran 2026-05-07 100412.png>)
+
+### Analyse
+
+| Question | Réponse |
+|----------|---------|
+| Durée totale de la trace la plus longue observée | 4.31 ms |
+| Service introduisant le plus de latence | api-rh |
+| Structure des appels | Séquentiel |
+
+### Détail de la chaîne d'appels observée
 
 ```
-histogram_quantile(
-  0.99,
-  sum(rate(http_duration_seconds_bucket[5m])) by (le, job)
-)
+gateway (Xms)
+  └── users (Xms)
+       └── database query (Xms)
+  └── products (Xms)
 ```
 
-**Résultat mesuré :** `0.00495`
+> [Décrivez les spans observés et leur contribution à la latence totale]
+La trace montre que l'API (api-rh) appelle le service Python (data-processor). L'opération prend 4.31 ms au total. Le service Python répond assez vite (876 µs), la majorité de l'attente vient donc simplement du temps de connexion réseau entre les deux services.
 
 ---
 
-## 5. Budget consommé ce mois-ci
+## Section 4 — Alertes Burn Rate déclenchées
 
-| SLO           | Budget total | Consommé | Restant | Déploiements bloqués ? |
-| ------------- | ------------ | -------- | ------- | ---------------------- |
-| Disponibilité | 216 min      | 5 min    | 211 min | Non                    |
-| Latence p99   | 0.5% des req | 0.1%     | 0.4%    | Non                    |
+### Test de déclenchement
 
----
+Commande utilisée pour générer des erreurs :
+```bash
+for i in $(seq 1 200); do
+  curl -s http://localhost:3000/endpoint-inexistant > /dev/null
+  sleep 0.05
+done
+```
 
-## 6. Règle de gel des déploiements
+| Alerte | Déclenchée ? | Délai de déclenchement | Burn rate mesuré |
+|--------|-------------|------------------------|------------------|
+| SLOBurnRateCritical | non | [X] min | [VALEUR]x |
+| SLOBurnRateWarning  | oui | 1 min | 12.2x |
 
-Si le budget restant passe sous 10% :
-
-* ❌ Aucun nouveau déploiement
-* ❌ Aucun changement de configuration
-* ✅ Uniquement des correctifs de fiabilité
-* ✅ Revue du code d'alerting
-
----
-
-## 7. Capture d'écran du dashboard Grafana
-
-<img width="1891" height="739" alt="image" src="https://github.com/user-attachments/assets/6c4921c4-372a-48ff-b393-33eff05452d1" />
+![image_alerts](<Capture d'écran 2026-05-07 101529.png>)
 
 ---
 
-## 8. Alertes configurées
+## Section 5 — Dashboard Grafana
 
-| Alerte         | Seuil                | Severity | Receiver | Testée ? |
-| -------------- | -------------------- | -------- | -------- | -------- |
-| HighErrorRate  | > 5% pendant 2min    | critical | webhook  | ✅        |
-| HighLatencyP99 | > 500ms pendant 5min | warning  | webhook  | ❌        |
+### Panels implémentés
 
-**Preuve de test :**
-L'alerte s'est bien déclenchée lors de la simulation d'erreurs 404/500.
+- [ OK  ] Panel 1 — Error Budget restant (Stat, seuils vert/orange/rouge)
+- [ OK ] Panel 2 — Burn Rate 1h (Time series, ligne de seuil à 14.4)
+- [ OK ] Panel 3 — Commandes par minute (Time series)
+- [ OK ] Panel 4 — Panier moyen (Stat, unité €)
+- [ OK ] Panel 5 — Lien Jaeger (Text)
 
-Statut : Pending 
-<img width="512" height="322" alt="image" src="https://github.com/user-attachments/assets/9fd121d9-1df0-4d28-88f8-75465efb32c6" />
+> ![image_graphana](<Capture d'écran 2026-05-07 093802.png>)
 
-Statut : Firing
-<img width="512" height="356" alt="image" src="https://github.com/user-attachments/assets/eab1b3fd-d9a7-4b71-a59f-4f8c4d9dbee2" />
+---
 
+## Section 6 — Métriques métier (Custom Metrics)
+
+### Métriques instrumentées
+
+| Métrique | Type | Description | Labels |
+|----------|------|-------------|--------|
+| `orders_total` | Counter | Nombre total de commandes | `status`, `payment_method` |
+| `order_value_euros` | Histogram | Valeur des commandes en € | — |
+| `cart_items_active` | Gauge | Articles dans paniers actifs | — |
+| `payment_processing_duration_seconds` | Summary | Durée traitement paiement | — |
+
+### Valeurs observées (PromQL)
+
+```promql
+# Commandes par minute
+rate(orders_total[5m]) * 60
+# Résultat : 20.24
+
+# Taux de succès
+sum(rate(orders_total{status="success"}[5m])) / sum(rate(orders_total[5m]))
+# Résultat : 0.92
+
+# Panier moyen
+rate(order_value_euros_sum[5m]) / rate(order_value_euros_count[5m])
+# Résultat : 77.3 €
+
+# Percentile 95 valeur commandes
+histogram_quantile(0.95, rate(order_value_euros_bucket[5m]))
+# Résultat : 182.1 €
+```
+
+---
+
+## Section 7 — Bilan & Rétrospective
+
+### Ce qui a bien fonctionné
+
+> La création du dashboard Grafana pour surveiller l'Error Budget en temps réel a très bien fonctionné. J'ai également réussi à lier les services avec Jaeger et à observer la propagation des traces entre l'api et le service Python sans problème.
+
+### Difficultés rencontrées
+
+> > La compréhension et le déclenchement des alertes Prometheus ont été plus compliquées. Par exemple, lors de mes tests de charge, j'ai réalisé que générer des erreurs 404 ne faisait pas baisser l'Error Budget. Il a fallu adapter le scripts pour cibler de vraies erreurs 500 afin que les alertes de Burn Rate passent au moins au orange. 
+
+### Améliorations possibles en production
+
+> [Ex : stockage Elasticsearch pour Jaeger, sampling adaptatif, dashboards
+> plus granulaires par service, SLO par endpoint...]
+
+---
+
+*TP Jour 4 — M2 DevOps SUP DE VINCI*
