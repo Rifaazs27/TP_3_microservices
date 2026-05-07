@@ -2,7 +2,7 @@ require('./tracing');
 const http = require('http');
 const express = require('express');
 const { register, trackRequest, ordersTotal, orderValueEuros } = require('./instrumentation');
-const { trace } = require('@opentelemetry/api');
+const { trace, context } = require('@opentelemetry/api');
 const winston = require('winston');
 const LokiTransport = require('winston-loki');
 const CircuitBreaker = require('opossum');
@@ -10,6 +10,7 @@ const CircuitBreaker = require('opossum');
 const app = express();
 const PORT = 3000;
 
+// --- CONFIGURATION LOGGER (Étape 2 & 3) ---
 const logger = winston.createLogger({
   format: winston.format.combine(
     winston.format.timestamp(),
@@ -19,13 +20,14 @@ const logger = winston.createLogger({
   transports: [
     new winston.transports.Console(),
     new LokiTransport({
-      host: 'http://loki:3100',
+      host: 'http://loki:3100', // Envoi direct vers Loki
       labels: { app: 'api-rh' },
       json: true
     })
   ]
 });
 
+// --- LOGIQUE D'APPEL ET CIRCUIT BREAKER (Étape 4) ---
 const fetchPythonData = () => {
   return new Promise((resolve, reject) => {
     http.get('http://python_processor:5000/health', (resp) => {
@@ -38,21 +40,25 @@ const fetchPythonData = () => {
 };
 
 const breaker = new CircuitBreaker(fetchPythonData, {
-  timeout: 3000,
-  errorThresholdPercentage: 50,
-  resetTimeout: 10000
+  timeout: 3000,           // Timeout de 3 secondes
+  errorThresholdPercentage: 50, // Ouverture si 50% d'erreurs
+  resetTimeout: 10000      // Attente de 10s avant de retenter (HALF-OPEN)
 });
 
+// Logs des transitions du Circuit Breaker
 breaker.on('open', () => logger.warn("CIRCUIT BREAKER: OPEN"));
 breaker.on('halfOpen', () => logger.info("CIRCUIT BREAKER: HALF-OPEN"));
 breaker.on('close', () => logger.info("CIRCUIT BREAKER: CLOSED"));
 
+// Réponse Fallback en cas de panne (Étape 4)
 breaker.fallback(() => ({ 
-  message: "Service Python momentanément indisponible", 
-  status: "DEGRADED_MODE" 
+  message: "Service Python momentanément indisponible (Mode dégradé)", 
+  status: "FALLBACK" 
 }));
 
 app.use(trackRequest);
+
+// --- ROUTES ---
 
 app.get('/health', (req, res) => {
     res.status(200).json({ status: "UP", service: "api-rh", timestamp: new Date() });
@@ -64,7 +70,10 @@ app.get('/metrics', async (req, res) => {
 });
 
 app.get('/chain', async (req, res) => {
-  const span = trace.getSpan(trace.getActiveContext());
+  // Récupération correcte du contexte de tracing (Étape 3)
+  const activeContext = context.active();
+  const span = trace.getSpan(activeContext);
+  
   const traceId = span ? span.spanContext().traceId : 'none';
   const spanId = span ? span.spanContext().spanId : 'none';
 
@@ -81,7 +90,7 @@ app.get('/chain', async (req, res) => {
       etape_2: data
     });
   } catch (err) {
-    res.status(500).json({ erreur: "Erreur critique", details: err.message });
+    res.status(500).json({ erreur: "Erreur lors de l'appel chaîné", details: err.message });
   }
 });
 
