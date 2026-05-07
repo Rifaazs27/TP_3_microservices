@@ -1,5 +1,10 @@
 # Rapport de TP : Observabilité & Résilience
 
+## Membre
+
+- MOUGAMMADOU ZACCARIA Zaafir
+
+
 ## Présentation du projet
 
 Ce projet démontre la mise en place d'une stack d'observabilité complète afin de monitorer des microservices et garantir leur résilience en cas de panne.
