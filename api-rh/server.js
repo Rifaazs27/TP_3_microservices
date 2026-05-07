@@ -43,6 +43,24 @@ breaker.fallback(() => ({
   status: "DEGRADED_MODE" 
 }));
 
+
+const LokiTransport = require('winston-loki');
+
+const logger = winston.createLogger({
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new LokiTransport({
+      host: 'http://loki:3100', // Envoi direct à Loki
+      labels: { job: 'api-rh' },
+      json: true
+    })
+  ]
+});
+
 app.use(trackRequest);
 
 // --- ROUTES ---
