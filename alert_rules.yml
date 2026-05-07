@@ -1,7 +1,7 @@
 groups:
   - name: slo.burnrate
     rules:
-      # Burn Rate CRITIQUE (épuisement en < 2h)
+      # --- Burn Rate CRITIQUE (épuisement en < 2h) ---
       - alert: SLOBurnRateCritical
         expr: |
           (sum(rate(http_requests_total{status=~"5.."}[1h])) / sum(rate(http_requests_total[1h]))) / 0.005 > 14.4
@@ -13,9 +13,9 @@ groups:
           slo: availability
         annotations:
           summary: "Error budget épuisé en moins de 2 heures"
-          description: "Le burn rate est supérieur à 14.4 sur les fenêtres de 5m et 1h."[cite: 2]
+          description: "Le burn rate est supérieur à 14.4 sur les fenêtres de 5m et 1h. Action immédiate requise."
 
-      # Burn Rate WARNING (épuisement en < 24h)
+      # --- Burn Rate WARNING (épuisement en < 24h) ---
       - alert: SLOBurnRateWarning
         expr: |
           (sum(rate(http_requests_total{status=~"5.."}[6h])) / sum(rate(http_requests_total[6h]))) / 0.005 > 6
@@ -27,4 +27,4 @@ groups:
           slo: availability
         annotations:
           summary: "Error budget en cours d'épuisement (< 24h)"
-          description: "Le burn rate est supérieur à 6 sur les fenêtres de 30m et 6h."[cite: 2]
+          description: "Le burn rate est supérieur à 6 sur les fenêtres de 30m et 6h."
