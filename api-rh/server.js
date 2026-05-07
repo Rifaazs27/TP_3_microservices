@@ -6,8 +6,10 @@ const { trace } = require('@opentelemetry/api');
 const winston = require('winston');
 const LokiTransport = require('winston-loki');
 const CircuitBreaker = require('opossum');
+
 const app = express();
 const PORT = 3000;
+
 const logger = winston.createLogger({
   format: winston.format.combine(
     winston.format.timestamp(),
@@ -40,15 +42,18 @@ const breaker = new CircuitBreaker(fetchPythonData, {
   errorThresholdPercentage: 50,
   resetTimeout: 10000
 });
-breaker.on('open', () => logger.warn("CIRCUIT BREAKER: OPEN (Panne détectée)"));
-breaker.on('halfOpen', () => logger.info("CIRCUIT BREAKER: HALF-OPEN (Test de récupération)"));
-breaker.on('close', () => logger.info("CIRCUIT BREAKER: CLOSED (Service rétabli)"));
+
+breaker.on('open', () => logger.warn("CIRCUIT BREAKER: OPEN"));
+breaker.on('halfOpen', () => logger.info("CIRCUIT BREAKER: HALF-OPEN"));
+breaker.on('close', () => logger.info("CIRCUIT BREAKER: CLOSED"));
+
 breaker.fallback(() => ({ 
   message: "Service Python momentanément indisponible", 
   status: "DEGRADED_MODE" 
 }));
 
 app.use(trackRequest);
+
 app.get('/health', (req, res) => {
     res.status(200).json({ status: "UP", service: "api-rh", timestamp: new Date() });
 });
@@ -62,10 +67,12 @@ app.get('/chain', async (req, res) => {
   const span = trace.getSpan(trace.getActiveContext());
   const traceId = span ? span.spanContext().traceId : 'none';
   const spanId = span ? span.spanContext().spanId : 'none';
+
   logger.info("Appel du service Python via Circuit Breaker", { 
     trace_id: traceId, 
     span_id: spanId 
   });
+
   try {
     const data = await breaker.fire();
     res.json({
@@ -83,6 +90,7 @@ app.get('/simulate-order', (req, res) => {
   const methods = ['credit_card', 'paypal', 'crypto'];
   const payment_method = methods[Math.floor(Math.random() * methods.length)];
   const isSuccess = Math.random() > 0.1;
+
   if (isSuccess) {
     ordersTotal.inc({ status: 'success', payment_method });
     orderValueEuros.observe(total);
@@ -93,5 +101,6 @@ app.get('/simulate-order', (req, res) => {
   }
 });
 
-app.get('/', (req, res) => res.send("L'API RH est fonctionnelle"))
+app.get('/', (req, res) => res.send("L'API RH est fonctionnelle"));
+
 app.listen(PORT, () => console.log(`Service RH lancé sur le port ${PORT}`));
