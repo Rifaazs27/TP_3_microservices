@@ -2,10 +2,50 @@ require('./tracing');
 const http = require('http');
 const express = require('express');
 const { register, trackRequest, ordersTotal, orderValueEuros } = require('./instrumentation');
+const { trace } = require('@opentelemetry/api');
+const winston = require('winston');
+const CircuitBreaker = require('opossum');
+
 const app = express();
 const PORT = 3000;
+const logger = winston.createLogger({
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  defaultMeta: { service_name: 'api-rh' },
+  transports: [new winston.transports.Console()]
+});
+
+
+const fetchPythonData = () => {
+  return new Promise((resolve, reject) => {
+    http.get('http://python_processor:5000/health', (resp) => {
+      let data = '';
+      if (resp.statusCode !== 200) return reject(new Error("Service Python Error"));
+      resp.on('data', (chunk) => { data += chunk; });
+      resp.on('end', () => resolve(JSON.parse(data)));
+    }).on("error", reject);
+  });
+};
+
+const breaker = new CircuitBreaker(fetchPythonData, {
+  timeout: 3000,
+  errorThresholdPercentage: 50,
+  resetTimeout: 10000
+});
+
+breaker.on('open', () => logger.warn("CIRCUIT BREAKER: OPEN (Panne détectée)"));
+breaker.on('halfOpen', () => logger.info("CIRCUIT BREAKER: HALF-OPEN (Test de récupération)"));
+breaker.on('close', () => logger.info("CIRCUIT BREAKER: CLOSED (Service rétabli)"));
+breaker.fallback(() => ({ 
+  message: "Service Python momentanément indisponible", 
+  status: "DEGRADED_MODE" 
+}));
 
 app.use(trackRequest);
+
+// --- ROUTES ---
 
 app.get('/health', (req, res) => {
     res.status(200).json({ status: "UP", service: "api-rh", timestamp: new Date() });
@@ -16,22 +56,26 @@ app.get('/metrics', async (req, res) => {
     res.end(await register.metrics());
 });
 
-app.get('/', (req, res) => res.send("L'API RH est fonctionnelle"));
+app.get('/chain', async (req, res) => {
+  const span = trace.getSpan(trace.getActiveContext());
+  const traceId = span ? span.spanContext().traceId : 'none';
+  const spanId = span ? span.spanContext().spanId : 'none';
 
-app.get('/chain', (req, res) => {
-     http.get('http://python_processor:5000/health', (resp) => {
-       let data = '';
-       resp.on('data', (chunk) => { data += chunk; });
-       resp.on('end', () => {
-         res.json({
-           message: "Chaîne de microservices réussie !",
-           etape_1: "api-rh (Node.js)",
-           etape_2: JSON.parse(data)
-         });
-       });
-     }).on("error", (err) => {
-       res.status(500).json({ erreur: "Impossible de joindre le service Python", details: err.message });
-     });
+  logger.info("Appel du service Python via Circuit Breaker", { 
+    trace_id: traceId, 
+    span_id: spanId 
+  });
+
+  try {
+    const data = await breaker.fire();
+    res.json({
+      message: "Chaîne de microservices réussie !",
+      etape_1: "api-rh (Node.js)",
+      etape_2: data
+    });
+  } catch (err) {
+    res.status(500).json({ erreur: "Erreur critique", details: err.message });
+  }
 });
 
 app.get('/simulate-order', (req, res) => {
@@ -49,5 +93,7 @@ app.get('/simulate-order', (req, res) => {
     res.status(500).json({ erreur: "Échec du paiement", paiement: payment_method });
   }
 });
+
+app.get('/', (req, res) => res.send("L'API RH est fonctionnelle"));
 
 app.listen(PORT, () => console.log(`Service RH lancé sur le port ${PORT}`));
