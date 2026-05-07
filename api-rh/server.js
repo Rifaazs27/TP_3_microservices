@@ -36,19 +36,19 @@ const fetchPythonData = () => {
 };
 
 const breaker = new CircuitBreaker(fetchPythonData, {
-  timeout: 3000, [cite: 81]
-  errorThresholdPercentage: 50, [cite: 86]
+  timeout: 3000,
+  errorThresholdPercentage: 50,
   resetTimeout: 10000
 });
 
-breaker.on('open', () => logger.warn("CIRCUIT BREAKER: OPEN (Panne détectée)")); [cite: 87]
-breaker.on('halfOpen', () => logger.info("CIRCUIT BREAKER: HALF-OPEN (Test de récupération)")); [cite: 87]
-breaker.on('close', () => logger.info("CIRCUIT BREAKER: CLOSED (Service rétabli)")); [cite: 87]
+breaker.on('open', () => logger.warn("CIRCUIT BREAKER: OPEN (Panne détectée)"));
+breaker.on('halfOpen', () => logger.info("CIRCUIT BREAKER: HALF-OPEN (Test de récupération)"));
+breaker.on('close', () => logger.info("CIRCUIT BREAKER: CLOSED (Service rétabli)"));
 
 breaker.fallback(() => ({ 
   message: "Service Python momentanément indisponible", 
   status: "DEGRADED_MODE" 
-})); [cite: 83]
+}));
 
 app.use(trackRequest);
 
@@ -64,14 +64,14 @@ app.get('/metrics', async (req, res) => {
 
 app.get('/chain', async (req, res) => {
   const span = trace.getSpan(trace.getActiveContext());
-  const traceId = span ? span.spanContext().traceId : 'none'; [cite: 66]
-  const spanId = span ? span.spanContext().spanId : 'none'; [cite: 67]
+  const traceId = span ? span.spanContext().traceId : 'none';
+  const spanId = span ? span.spanContext().spanId : 'none';
   logger.info("Appel du service Python via Circuit Breaker", { 
     trace_id: traceId, 
     span_id: spanId 
   }); [cite: 65]
   try {
-    const data = await breaker.fire(); [cite: 80]
+    const data = await breaker.fire();
     res.json({
       message: "Chaîne de microservices réussie !",
       etape_1: "api-rh (Node.js)",
