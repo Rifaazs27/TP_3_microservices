@@ -61,4 +61,18 @@ const trackRequest = (req, res, next) => {
   next();
 };
 
-module.exports = { register, trackRequest, httpRequestsTotal, httpDurationSeconds };
+const ordersTotal = new client.Counter({
+  name: 'orders_total',
+  help: 'Total number of orders placed',
+  labelNames: ['status', 'payment_method'],
+  registers: [register]
+});
+
+const orderValueEuros = new client.Histogram({
+  name: 'order_value_euros',
+  help: 'Order value in euros',
+  buckets: [5, 10, 25, 50, 100, 200, 500],
+  registers: [register]
+});
+
+module.exports = { register, trackRequest, httpRequestsTotal, httpDurationSeconds, ordersTotal, orderValueEuros };
