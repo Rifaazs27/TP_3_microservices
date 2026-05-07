@@ -64,7 +64,8 @@ Oui, il a été fortement consommé par nos tests manuels qui ont généré volo
 
 ### Capture d'écran
 
-> ![image_Jaeger](<Capture d'écran 2026-05-07 100412.png>)
+> <img width="1917" height="666" alt="Capture d&#39;écran 2026-05-07 100412" src="https://github.com/user-attachments/assets/6ade5636-1679-4fb5-82c2-27f3441d5539" />
+
 
 ### Analyse
 
@@ -105,7 +106,8 @@ done
 | SLOBurnRateCritical | non | [X] min | [VALEUR]x |
 | SLOBurnRateWarning  | oui | 1 min | 12.2x |
 
-![image_alerts](<Capture d'écran 2026-05-07 101529.png>)
+<img width="928" height="731" alt="Capture d&#39;écran 2026-05-07 101529" src="https://github.com/user-attachments/assets/dae2062e-0948-4e66-b4ee-1d055b7f164b" />
+
 
 ---
 
@@ -119,7 +121,8 @@ done
 - [ OK ] Panel 4 — Panier moyen (Stat, unité €)
 - [ OK ] Panel 5 — Lien Jaeger (Text)
 
-> ![image_graphana](<Capture d'écran 2026-05-07 093802.png>)
+> <img width="1890" height="718" alt="Capture d&#39;écran 2026-05-07 093802" src="https://github.com/user-attachments/assets/1f1867a2-633c-4b5d-b143-75112a17dfeb" />
+
 
 ---
 
