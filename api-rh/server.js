@@ -4,8 +4,8 @@ const express = require('express');
 const { register, trackRequest, ordersTotal, orderValueEuros } = require('./instrumentation');
 const { trace } = require('@opentelemetry/api');
 const winston = require('winston');
+const LokiTransport = require('winston-loki');
 const CircuitBreaker = require('opossum');
-
 const app = express();
 const PORT = 3000;
 const logger = winston.createLogger({
@@ -14,9 +14,15 @@ const logger = winston.createLogger({
     winston.format.json()
   ),
   defaultMeta: { service_name: 'api-rh' },
-  transports: [new winston.transports.Console()]
+  transports: [
+    new winston.transports.Console(),
+    new LokiTransport({
+      host: 'http://loki:3100',
+      labels: { app: 'api-rh' },
+      json: true
+    })
+  ]
 });
-
 
 const fetchPythonData = () => {
   return new Promise((resolve, reject) => {
@@ -30,36 +36,19 @@ const fetchPythonData = () => {
 };
 
 const breaker = new CircuitBreaker(fetchPythonData, {
-  timeout: 3000,
-  errorThresholdPercentage: 50,
+  timeout: 3000, [cite: 81]
+  errorThresholdPercentage: 50, [cite: 86]
   resetTimeout: 10000
 });
 
-breaker.on('open', () => logger.warn("CIRCUIT BREAKER: OPEN (Panne détectée)"));
-breaker.on('halfOpen', () => logger.info("CIRCUIT BREAKER: HALF-OPEN (Test de récupération)"));
-breaker.on('close', () => logger.info("CIRCUIT BREAKER: CLOSED (Service rétabli)"));
+breaker.on('open', () => logger.warn("CIRCUIT BREAKER: OPEN (Panne détectée)")); [cite: 87]
+breaker.on('halfOpen', () => logger.info("CIRCUIT BREAKER: HALF-OPEN (Test de récupération)")); [cite: 87]
+breaker.on('close', () => logger.info("CIRCUIT BREAKER: CLOSED (Service rétabli)")); [cite: 87]
+
 breaker.fallback(() => ({ 
   message: "Service Python momentanément indisponible", 
   status: "DEGRADED_MODE" 
-}));
-
-
-const LokiTransport = require('winston-loki');
-
-const logger = winston.createLogger({
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.Console(),
-    new LokiTransport({
-      host: 'http://loki:3100', // Envoi direct à Loki
-      labels: { job: 'api-rh' },
-      json: true
-    })
-  ]
-});
+})); [cite: 83]
 
 app.use(trackRequest);
 
@@ -68,7 +57,6 @@ app.use(trackRequest);
 app.get('/health', (req, res) => {
     res.status(200).json({ status: "UP", service: "api-rh", timestamp: new Date() });
 });
-
 app.get('/metrics', async (req, res) => {
     res.set('Content-Type', register.contentType);
     res.end(await register.metrics());
@@ -76,16 +64,14 @@ app.get('/metrics', async (req, res) => {
 
 app.get('/chain', async (req, res) => {
   const span = trace.getSpan(trace.getActiveContext());
-  const traceId = span ? span.spanContext().traceId : 'none';
-  const spanId = span ? span.spanContext().spanId : 'none';
-
+  const traceId = span ? span.spanContext().traceId : 'none'; [cite: 66]
+  const spanId = span ? span.spanContext().spanId : 'none'; [cite: 67]
   logger.info("Appel du service Python via Circuit Breaker", { 
     trace_id: traceId, 
     span_id: spanId 
-  });
-
+  }); [cite: 65]
   try {
-    const data = await breaker.fire();
+    const data = await breaker.fire(); [cite: 80]
     res.json({
       message: "Chaîne de microservices réussie !",
       etape_1: "api-rh (Node.js)",
@@ -101,7 +87,6 @@ app.get('/simulate-order', (req, res) => {
   const methods = ['credit_card', 'paypal', 'crypto'];
   const payment_method = methods[Math.floor(Math.random() * methods.length)];
   const isSuccess = Math.random() > 0.1;
-
   if (isSuccess) {
     ordersTotal.inc({ status: 'success', payment_method });
     orderValueEuros.observe(total);
@@ -113,5 +98,4 @@ app.get('/simulate-order', (req, res) => {
 });
 
 app.get('/', (req, res) => res.send("L'API RH est fonctionnelle"));
-
 app.listen(PORT, () => console.log(`Service RH lancé sur le port ${PORT}`));
